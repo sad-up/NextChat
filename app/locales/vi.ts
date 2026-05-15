@@ -77,6 +77,7 @@ const vi: PartialLocaleType = {
       Clear: "Xóa cuộc trò chuyện",
       Settings: "Cài đặt trò chuyện",
       UploadImage: "Tải lên hình ảnh",
+      UploadFile: "Tải lên tệp",
     },
     Rename: "Đổi tên cuộc trò chuyện",
     Typing: "Đang nhập…",
