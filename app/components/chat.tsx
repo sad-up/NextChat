@@ -1133,7 +1133,7 @@ function _Chat() {
       filename: f.name,
     })).filter(f => f.url) as { url: string; filename: string; }[];
     chatStore
-      .onUserInput(inputWithFiles, attachImages, fileAttachments)
+      .onUserInput(inputWithFiles, attachImages, undefined, fileAttachments)
       .then(() => setIsLoading(false));
     setAttachImages([]);
     setAttachedFiles([]);
@@ -1287,7 +1287,7 @@ function _Chat() {
     setIsLoading(true);
     const textContent = getMessageTextContent(userMessage);
     const images = getMessageImages(userMessage);
-    chatStore.onUserInput(textContent, images, undefined).then(() => setIsLoading(false));
+    chatStore.onUserInput(textContent, images).then(() => setIsLoading(false));
     inputRef.current?.focus();
   };
 
