@@ -1112,7 +1112,7 @@ function _Chat() {
   };
 
   const doSubmit = (userInput: string) => {
-    if (userInput.trim() === "" && isEmpty(attachImages)) return;
+    if (userInput.trim() === "" && isEmpty(attachImages) && attachedFiles.length === 0) return;
     const matchCommand = chatCommands.match(userInput);
     if (matchCommand.matched) {
       setUserInput("");
@@ -1121,10 +1121,13 @@ function _Chat() {
       return;
     }
     setIsLoading(true);
+    const fileContent = attachedFiles.map(f => `--- File: ${f.name} ---\n${f.content}`).join('\n\n');
+    const inputWithFiles = fileContent ? `${userInput}\n\n${fileContent}` : userInput;
     chatStore
-      .onUserInput(userInput, attachImages)
+      .onUserInput(inputWithFiles, attachImages)
       .then(() => setIsLoading(false));
     setAttachImages([]);
+    setAttachedFiles([]);
     chatStore.setLastInput(userInput);
     setUserInput("");
     setPromptHints([]);
@@ -2187,6 +2190,39 @@ function _Chat() {
                 setUserInput={setUserInput}
                 setShowChatSidePanel={setShowChatSidePanel}
               />
+              {attachedFiles.length != 0 && (
+                <div className={styles["attached-files"]}>
+                  {attachedFiles.map((file, index) => {
+                    return (
+                      <div
+                        key={index}
+                        className={styles["attached-file"]}
+                      >
+                        <div className={styles["attached-file-icon"]}>
+                          <UploadFileIcon />
+                        </div>
+                        <div className={styles["attached-file-info"]}>
+                          <div className={styles["attached-file-name"]}>
+                            {file.name}
+                          </div>
+                          <div className={styles["attached-file-size"]}>
+                            {formatFileSize(file.size)}
+                          </div>
+                        </div>
+                        <div className={styles["attached-file-delete"]}>
+                          <DeleteImageButton
+                            deleteImage={() => {
+                              setAttachedFiles(
+                                attachedFiles.filter((_, i) => i !== index),
+                              );
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <label
                 className={clsx(styles["chat-input-panel-inner"], {
                   [styles["chat-input-panel-inner-attach"]]:
@@ -2235,39 +2271,7 @@ function _Chat() {
                     })}
                   </div>
                 )}
-                {attachedFiles.length != 0 && (
-                  <div className={styles["attached-files"]}>
-                    {attachedFiles.map((file, index) => {
-                      return (
-                        <div
-                          key={index}
-                          className={styles["attached-file"]}
-                        >
-                          <div className={styles["attached-file-icon"]}>
-                            <UploadFileIcon />
-                          </div>
-                          <div className={styles["attached-file-info"]}>
-                            <div className={styles["attached-file-name"]}>
-                              {file.name}
-                            </div>
-                            <div className={styles["attached-file-size"]}>
-                              {formatFileSize(file.size)}
-                            </div>
-                          </div>
-                          <div className={styles["attached-file-delete"]}>
-                            <DeleteImageButton
-                              deleteImage={() => {
-                                setAttachedFiles(
-                                  attachedFiles.filter((_, i) => i !== index),
-                                );
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                
                 <IconButton
                   icon={<SendWhiteIcon />}
                   text={Locale.Chat.Send}
