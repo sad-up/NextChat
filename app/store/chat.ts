@@ -407,6 +407,7 @@ export const useChatStore = createPersistStore(
       async onUserInput(
         content: string,
         attachImages?: string[],
+        attachFiles?: { url: string; filename: string }[],
         isMcpResponse?: boolean,
       ) {
         const session = get().currentSession();
@@ -417,14 +418,33 @@ export const useChatStore = createPersistStore(
           ? content
           : fillTemplateWith(content, modelConfig);
 
-        if (!isMcpResponse && attachImages && attachImages.length > 0) {
-          mContent = [
-            ...(content ? [{ type: "text" as const, text: content }] : []),
-            ...attachImages.map((url) => ({
-              type: "image_url" as const,
-              image_url: { url },
-            })),
-          ];
+        if (!isMcpResponse && ((attachImages && attachImages.length > 0) || (attachFiles && attachFiles.length > 0))) {
+          mContent = [];
+          
+          // 添加文本内容
+          if (content) {
+            mContent.push({ type: "text" as const, text: content });
+          }
+          
+          // 添加图片
+          if (attachImages && attachImages.length > 0) {
+            mContent.push(
+              ...attachImages.map((url) => ({
+                type: "image_url" as const,
+                image_url: { url },
+              })),
+            );
+          }
+          
+          // 添加文件
+          if (attachFiles && attachFiles.length > 0) {
+            mContent.push(
+              ...attachFiles.map(({ url, filename }) => ({
+                type: "file_url" as const,
+                file_url: { url, filename },
+              })),
+            );
+          }
         }
 
         let userMessage: ChatMessage = createMessage({
