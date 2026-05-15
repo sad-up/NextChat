@@ -22,3 +22,10 @@ export type ModelSize =
   | "1152x864"
   | "1440x720"
   | "720x1440";
+
+export interface AttachedFile {
+  name: string;
+  content: string;
+  type: string;
+  size: number;
+}
