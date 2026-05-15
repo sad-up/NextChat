@@ -1657,7 +1657,8 @@ function _Chat() {
                 } catch (uploadError) {
                   console.error(`Failed to upload ${file.name}:`, uploadError);
                   content = "";
-                  alert(`文件上传失败: ${file.name}\n错误: ${uploadError.message}\n\n请检查服务器配置或使用文本文件。`);
+                  const errorMessage = uploadError instanceof Error ? uploadError.message : String(uploadError);
+                  alert(`文件上传失败: ${file.name}\n错误: ${errorMessage}\n\n请检查服务器配置或使用文本文件。`);
                   continue;
                   url = undefined;
                 }
