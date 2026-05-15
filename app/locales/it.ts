@@ -78,6 +78,7 @@ const it: PartialLocaleType = {
       Clear: "Pulisci chat",
       Settings: "Impostazioni conversazione",
       UploadImage: "Carica immagine",
+      UploadFile: "Carica file",
     },
     Rename: "Rinomina conversazione",
     Typing: "Digitazione in corso…",
