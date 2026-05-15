@@ -280,6 +280,22 @@ export function getMessageImages(message: RequestMessage): string[] {
   return urls;
 }
 
+export function getMessageFiles(message: RequestMessage): { url: string; filename: string }[] {
+  if (typeof message.content === "string") {
+    return [];
+  }
+  const files: { url: string; filename: string }[] = [];
+  for (const c of message.content) {
+    if (c.type === "file_url" && c.file_url?.url && c.file_url?.filename) {
+      files.push({
+        url: c.file_url.url,
+        filename: c.file_url.filename,
+      });
+    }
+  }
+  return files;
+}
+
 export function isVisionModel(model: string) {
   const visionModels = useAccessStore.getState().visionModels;
   const envVisionModels = visionModels?.split(",").map((m) => m.trim());
