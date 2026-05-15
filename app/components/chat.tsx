@@ -61,6 +61,7 @@ import {
   useChatStore,
   usePluginStore,
 } from "../store";
+import type { AttachedFile } from "../typing";
 
 import {
   autoGrowTextArea,
