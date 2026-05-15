@@ -566,6 +566,60 @@
   border: rgba(136, 136, 136, 0.2) 1px solid;
 }
 
+
+.chat-message-files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.chat-message-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: rgba(136, 136, 136, 0.2) 1px solid;
+  border-radius: 8px;
+  background-color: var(--white);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all ease 0.2s;
+  max-width: 100%;
+  box-sizing: border-box;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+  }
+
+  .chat-message-file-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--black);
+
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  .chat-message-file-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--black);
+  }
+}
+
 @media only screen and (max-width: 600px) {
   $calc-image-width: calc(100vw / 3 * 2 / var(--image-count));
 
