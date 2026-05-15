@@ -78,7 +78,7 @@ import {
   showPlugins,
 } from "../utils";
 
-import { uploadImage as uploadImageRemote } from "@/app/utils/chat";
+import { uploadImage as uploadImageRemote, uploadFile as uploadFileRemote } from "@/app/utils/chat";
 
 import dynamic from "next/dynamic";
 
@@ -1121,10 +1121,16 @@ function _Chat() {
       return;
     }
     setIsLoading(true);
-    const fileContent = attachedFiles.map(f => `--- File: ${f.name} ---\n${f.content}`).join('\n\n');
-    const inputWithFiles = fileContent ? `${userInput}\n\n${fileContent}` : userInput;
+    const textFiles = attachedFiles.filter(f => !f.url);
+    const binaryFiles = attachedFiles.filter(f => f.url);
+
+    const textContent = textFiles.map(f => `--- File: ${f.name} ---\n${f.content}`).join('\n\n');
+    let inputWithFiles = textContent ? `${userInput}\n\n${textContent}` : userInput;
+
+    const fileUrls = binaryFiles.map(f => f.url!).filter(Boolean) as string[];
+    const allAttachments = [...attachImages, ...fileUrls];
     chatStore
-      .onUserInput(inputWithFiles, attachImages)
+      .onUserInput(inputWithFiles, allAttachments.length > 0 ? allAttachments : undefined)
       .then(() => setIsLoading(false));
     setAttachImages([]);
     setAttachedFiles([]);
@@ -1614,8 +1620,13 @@ function _Chat() {
       ".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx", ".csv",
       ".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".c", ".cpp", ".h", ".hpp",
       ".html", ".htm", ".css", ".json", ".xml", ".yaml", ".yml",
-      ".tsv", ".log",
+      ".tsv", ".log", ".csv",
     ];
+    const binaryExtensions = [
+      ".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx",
+    ];
+
+    const acceptedTypes = [...textExtensions, ...binaryExtensions];
 
     const files: AttachedFile[] = [];
     files.push(...attachedFiles);
@@ -1633,13 +1644,26 @@ function _Chat() {
 
           for (let i = 0; i < selectedFiles.length; i++) {
             const file = selectedFiles[i];
+            const ext = file.name.split(".").pop()?.toLowerCase() || "";
+            
             try {
-              const content = await readFileAsText(file);
+              let content = "";
+              let url: string | undefined;
+              
+              if (textExtensions.includes(`.${ext}`)) {
+                content = await readFileAsText(file);
+              } else if (binaryExtensions.includes(`.${ext}`)) {
+                url = await uploadFileRemote(file);
+                content = `[File uploaded: ${file.name} (${formatFileSize(file.size)})]`;
+              } else {
+                content = `[Unsupported file type: ${file.name}]`;
+              }
               filesData.push({
                 name: file.name,
                 content: content,
                 type: file.type || getMimeType(file.name),
                 size: file.size,
+                url: url,
               });
 
               if (filesData.length === selectedFiles.length) {
