@@ -86,6 +86,9 @@ export async function preProcessImageContentBase(
       } catch (error) {
         console.error("Error processing image URL:", error);
       }
+      } else if (part?.type == "file_url" && part?.file_url?.url) {
+      // 文件附件直接通过，不做转换
+      result.push({ ...part });
     } else {
       result.push({ ...part });
     }
