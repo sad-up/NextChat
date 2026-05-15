@@ -1040,7 +1040,7 @@ function _Chat() {
   const isMobileScreen = useMobileScreen();
   const navigate = useNavigate();
   const [attachImages, setAttachImages] = useState<string[]>([]);
-  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [attachFiles, setAttachFiles] = useState<{ url: string; name: string }[]>([]);
   const [uploading, setUploading] = useState(false);
 
   // prompt hints
@@ -1621,74 +1621,49 @@ function _Chat() {
     setAttachImages(images);
   }
   async function uploadFile() {
-    const textExtensions = [
-      ".txt", ".md", ".markdown", ".rtf",
-      ".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx", ".csv",
-      ".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".c", ".cpp", ".h", ".hpp",
-      ".html", ".htm", ".css", ".json", ".xml", ".yaml", ".yml",
-      ".tsv", ".log"
-    ];
-    const binaryExtensions = [
-      ".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx", ".csv",
-    ];
-
-    const acceptedTypes = [...textExtensions, ...binaryExtensions];
-
-    const files: AttachedFile[] = [];
-    files.push(...attachedFiles);
+    const files: { url: string; name: string }[] = [];
+    files.push(...attachFiles);
 
     files.push(
-      ...(await new Promise<AttachedFile[]>((res, rej) => {
+      ...(await new Promise<{ url: string; name: string }[]>((res, rej) => {
         const fileInput = document.createElement("input");
         fileInput.type = "file";
-        fileInput.accept = acceptedTypes.join(",");
+        fileInput.accept = ".txt,.md,.markdown,.rtf,.py,.js,.jsx,.ts,.tsx,.java,.c,.cpp,.h,.hpp,.html,.htm,.css,.json,.xml,.yaml,.yml,.tsv,.log,.csv,.doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx";
         fileInput.multiple = true;
-        fileInput.onchange = async (event: any) => {
+        fileInput.onchange = (event: any) => {
           setUploading(true);
           const selectedFiles = event.target.files;
-          const filesData: AttachedFile[] = [];
+          const filesData: { url: string; name: string }[] = [];
+          let completedFiles = 0;
 
           for (let i = 0; i < selectedFiles.length; i++) {
             const file = selectedFiles[i];
-            const ext = file.name.split(".").pop()?.toLowerCase() || "";
-            
-            try {
-              let content = "";
-              let url: string | undefined;
-              
-              if (binaryExtensions.includes(`.${ext}`)) {
-                try {
-                  url = await uploadFileRemote(file);
-                  content = `[File uploaded: ${file.name} (${formatFileSize(file.size)})]`;
-                } catch (uploadError) {
-                  console.error(`Failed to upload ${file.name}:`, uploadError);
-                  content = "";
-                  const errorMessage = uploadError instanceof Error ? uploadError.message : String(uploadError);
-                  alert(`文件上传失败: ${file.name}\n错误: ${errorMessage}\n\n请检查服务器配置或使用文本文件。`);
-                  continue;
-                  url = undefined;
-                }
-                } else if (textExtensions.includes(`.${ext}`)) {
-                content = await readFileAsText(file);
-              } else {
-                content = `[Unsupported file type: ${file.name}]`;
-              }
+              uploadFileRemote(file)
+              .then((dataUrl) => {
               filesData.push({
-                name: file.name,
-                content: content,
-                type: file.type || getMimeType(file.name),
-                size: file.size,
-                url: url,
+                  url: dataUrl,
+                  name: file.name,
+                });
+                completedFiles++;
+                if (filesData.length === selectedFiles.length) {
+                  setUploading(false);
+                  res(filesData);
+                }
+              })
+              .catch((e) => {
+                console.error("Error uploading file:", e);
+                completedFiles++;
+                if (completedFiles === selectedFiles.length) {
+                  setUploading(false);
+                  if (filesData.length > 0) {
+                    res(filesData);
+                  } else {
+                    rej(e);
+                  }
+                }
               });
-
-              if (filesData.length === selectedFiles.length) {
-                setUploading(false);
-                res(filesData);
-              }
-            } catch (e) {
-              setUploading(false);
-              rej(e);
-            }
+          }
+        };
           }
         };
         fileInput.click();
@@ -1709,50 +1684,7 @@ function _Chat() {
     });
   }
 
-  function getMimeType(filename: string): string {
-    const ext = filename.split(".").pop()?.toLowerCase();
-    const mimeTypes: Record<string, string> = {
-      txt: "text/plain",
-      md: "text/markdown",
-      markdown: "text/markdown",
-      rtf: "application/rtf",
-      doc: "application/msword",
-      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      pdf: "application/pdf",
-      ppt: "application/vnd.ms-powerpoint",
-      pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      xls: "application/vnd.ms-excel",
-      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      csv: "text/csv",
-      py: "text/x-python",
-      js: "text/javascript",
-      jsx: "text/javascript",
-      ts: "text/typescript",
-      tsx: "text/typescript",
-      java: "text/x-java",
-      c: "text/x-c",
-      cpp: "text/x-c++",
-      h: "text/x-c",
-      hpp: "text/x-c++",
-      html: "text/html",
-      htm: "text/html",
-      css: "text/css",
-      json: "application/json",
-      xml: "application/xml",
-      yaml: "text/x-yaml",
-      yml: "text/x-yaml",
-      tsv: "text/tab-separated-values",
-      log: "text/plain",
-    };
-    return mimeTypes[ext || ""] || "application/octet-stream";
-  }
-
-  function formatFileSize(bytes: number): string {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  
   }
 
   // 快捷键 shortcut keys
@@ -2229,9 +2161,9 @@ function _Chat() {
                 setUserInput={setUserInput}
                 setShowChatSidePanel={setShowChatSidePanel}
               />
-              {attachedFiles.length != 0 && (
+              {attachFiles.length != 0 && (
                 <div className={styles["attached-files"]}>
-                  {attachedFiles.map((file, index) => {
+                  {attachFiles.map((file, index) => {
                     return (
                       <div
                         key={index}
@@ -2244,16 +2176,13 @@ function _Chat() {
                           <div className={styles["attached-file-name"]}>
                             {file.name}
                           </div>
-                          <div className={styles["attached-file-size"]}>
-                            {formatFileSize(file.size)}
-                          </div>
+                          
                         </div>
                         <div className={styles["attached-file-delete"]}>
                           <DeleteImageButton
                             deleteImage={() => {
-                              setAttachedFiles(
-                                attachedFiles.filter((_, i) => i !== index),
-                              );
+                             setAttachFiles(
+                                attachFiles.filter((_, i) => i !== index),
                             }}
                           />
                         </div>
