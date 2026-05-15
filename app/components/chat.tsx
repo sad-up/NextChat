@@ -496,14 +496,12 @@ export function ChatActions(props: {
   uploadImage: () => void;
   uploadFile: () => void;
   setAttachImages: (images: string[]) => void;
-  setAttachedFiles: (files: AttachedFile[]) => void;
   setUploading: (uploading: boolean) => void;
   showPromptModal: () => void;
   scrollToBottom: () => void;
   showPromptHints: () => void;
   hitBottom: boolean;
   uploading: boolean;
-  attachedFiles: AttachedFile[];
   setShowShortcutKeyModal: React.Dispatch<React.SetStateAction<boolean>>;
   setUserInput: (input: string) => void;
   setShowChatSidePanel: React.Dispatch<React.SetStateAction<boolean>>;
@@ -1112,7 +1110,7 @@ function _Chat() {
   };
 
   const doSubmit = (userInput: string) => {
-    if (userInput.trim() === "" && isEmpty(attachImages) && attachedFiles.length === 0) return;
+    if (userInput.trim() === "" && isEmpty(attachImages) && attachFiles.length === 0) return;
     const matchCommand = chatCommands.match(userInput);
     if (matchCommand.matched) {
       setUserInput("");
@@ -1121,25 +1119,15 @@ function _Chat() {
       return;
     }
     setIsLoading(true);
-    const textFiles = attachedFiles.filter(f => !f.url);
-    const binaryFiles = attachedFiles.filter(f => f.url);
-
-    const textContent = textFiles.map(f => `--- File: ${f.name} ---\n${f.content}`).join('\n\n');
-    let inputWithFiles = textContent ? `${userInput}\n\n${textContent}` : userInput;
-
-    // 准备文件附件
-    const fileAttachments = binaryFiles.map(f => ({
-      url: f.url!,
-      filename: f.name,
-    })).filter(f => f.url) as { url: string; filename: string; }[];
-    (chatStore as any).onUserInput(
-      inputWithFiles,
+    
+    chatStore.onUserInput(
+      userInput,
       attachImages,
       undefined,
-      fileAttachments,
+      attachFiles,
     ).then(() => setIsLoading(false));
     setAttachImages([]);
-    setAttachedFiles([]);
+   setAttachFiles([]);
     chatStore.setLastInput(userInput);
     setUserInput("");
     setPromptHints([]);
@@ -2110,6 +2098,26 @@ function _Chat() {
                                 )}
                               </div>
                             )}
+                            {getMessageFiles(message).length > 0 && (
+                              <div className={styles["chat-message-files"]}>
+                                {getMessageFiles(message).map((file, index) => (
+                                  <a
+                                    key={index}
+                                    href={file.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={styles["chat-message-file"]}
+                                  >
+                                    <div className={styles["chat-message-file-icon"]}>
+                                      <UploadFileIcon />
+                                    </div>
+                                    <div className={styles["chat-message-file-name"]}>
+                                      {file.filename}
+                                    </div>
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           {message?.audio_url && (
                             <div className={styles["chat-message-audio"]}>
@@ -2139,13 +2147,13 @@ function _Chat() {
                 uploadImage={uploadImage}
                 uploadFile={uploadFile}
                 setAttachImages={setAttachImages}
-                setAttachedFiles={setAttachedFiles}
+                
                 setUploading={setUploading}
                 showPromptModal={() => setShowPromptModal(true)}
                 scrollToBottom={scrollToBottom}
                 hitBottom={hitBottom}
                 uploading={uploading}
-                attachedFiles={attachedFiles}
+                
                 showPromptHints={() => {
                   // Click again to close
                   if (promptHints.length > 0) {
