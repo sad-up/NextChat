@@ -1612,52 +1612,49 @@ function _Chat() {
     const files: { url: string; name: string }[] = [];
     files.push(...attachFiles);
 
-    files.push(
-      ...(await new Promise<{ url: string; name: string }[]>((res, rej) => {
-        const fileInput = document.createElement("input");
-        fileInput.type = "file";
-        fileInput.accept = ".txt,.md,.markdown,.rtf,.py,.js,.jsx,.ts,.tsx,.java,.c,.cpp,.h,.hpp,.html,.htm,.css,.json,.xml,.yaml,.yml,.tsv,.log,.csv,.doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx";
-        fileInput.multiple = true;
-        fileInput.onchange = (event: any) => {
-          setUploading(true);
-          const selectedFiles = event.target.files;
-          const filesData: { url: string; name: string }[] = [];
-          let completedFiles = 0;
+    const newFiles = await new Promise<{ url: string; name: string }[]>((res, rej) => {
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = ".txt,.md,.markdown,.rtf,.py,.js,.jsx,.ts,.tsx,.java,.c,.cpp,.h,.hpp,.html,.htm,.css,.json,.xml,.yaml,.yml,.tsv,.log,.csv,.doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx";
+      fileInput.multiple = true;
+      fileInput.onchange = (event: any) => {
+        setUploading(true);
+        const selectedFiles = event.target.files;
+        const filesData: { url: string; name: string }[] = [];
+        let completedFiles = 0;
 
-          for (let i = 0; i < selectedFiles.length; i++) {
-            const file = selectedFiles[i];
-              uploadFileRemote(file)
-              .then((dataUrl) => {
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const file = selectedFiles[i];
+          uploadFileRemote(file)
+            .then((dataUrl) => {
               filesData.push({
-                  url: dataUrl,
-                  name: file.name,
-                });
-                completedFiles++;
-                if (filesData.length === selectedFiles.length) {
-                  setUploading(false);
-                  res(filesData);
-                }
-              })
-              .catch((e) => {
-                console.error("Error uploading file:", e);
-                completedFiles++;
-                if (completedFiles === selectedFiles.length) {
-                  setUploading(false);
-                  if (filesData.length > 0) {
-                    res(filesData);
-                  } else {
-                    rej(e);
-                  }
-                }
+                url: dataUrl,
+                name: file.name,
               });
-          }
-        };
-          }
-        };
-        fileInput.click();
-      })),
-    );
+              completedFiles++;
+              if (filesData.length === selectedFiles.length) {
+                setUploading(false);
+                res(filesData);
+              }
+            })
+            .catch((e) => {
+              console.error("Error uploading file:", e);
+              completedFiles++;
+              if (completedFiles === selectedFiles.length) {
+                setUploading(false);
+                if (filesData.length > 0) {
+                  res(filesData);
+                } else {
+                  rej(e);
+                }
+              }
+            });
+        }
+      };
+      fileInput.click();
+    });
 
+    files.push(...newFiles);
     setAttachedFiles(files);
   }
 
