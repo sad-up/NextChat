@@ -1615,7 +1615,7 @@ function _Chat() {
     setAttachImages(images);
   }
   async function uploadFile() {
-    const acceptedTypes = [
+    const textExtensions = [
       ".txt", ".md", ".markdown", ".rtf",
       ".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx", ".csv",
       ".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".c", ".cpp", ".h", ".hpp",
