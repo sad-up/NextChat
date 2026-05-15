@@ -79,6 +79,7 @@ const no: PartialLocaleType = {
       Clear: "Rydd samtale",
       Settings: "Samtaleinnstillinger",
       UploadImage: "Last opp bilde",
+      UploadFile: "Last opp fil",
     },
     Rename: "Gi nytt navn til samtale",
     Typing: "Skriver…",
