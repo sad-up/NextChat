@@ -1653,8 +1653,14 @@ function _Chat() {
               if (textExtensions.includes(`.${ext}`)) {
                 content = await readFileAsText(file);
               } else if (binaryExtensions.includes(`.${ext}`)) {
-                url = await uploadFileRemote(file);
-                content = `[File uploaded: ${file.name} (${formatFileSize(file.size)})]`;
+                try {
+                  url = await uploadFileRemote(file);
+                  content = `[File uploaded: ${file.name} (${formatFileSize(file.size)})]`;
+                } catch (uploadError) {
+                  console.error(`Failed to upload ${file.name}:`, uploadError);
+                  content = `[File upload failed: ${file.name} - please try again]`;
+                  url = undefined;
+                }
               } else {
                 content = `[Unsupported file type: ${file.name}]`;
               }
