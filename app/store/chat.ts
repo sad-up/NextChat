@@ -407,8 +407,9 @@ export const useChatStore = createPersistStore(
       async onUserInput(
         content: string,
         attachImages?: string[],
-        attachFiles?: { url: string; filename: string }[],
+        
         isMcpResponse?: boolean,
+        attachFiles?: { url: string; name: string }[],
       ) {
         const session = get().currentSession();
         const modelConfig = session.mask.modelConfig;
@@ -439,9 +440,12 @@ export const useChatStore = createPersistStore(
           // 添加文件
           if (attachFiles && attachFiles.length > 0) {
             mContent.push(
-              ...attachFiles.map(({ url, filename }) => ({
+              ...attachFiles.map((file) => ({
                 type: "file_url" as const,
-                file_url: { url, filename },
+                file_url: { 
+                  url: file.url, 
+                  filename: file.name 
+                },
               })),
             );
           }
