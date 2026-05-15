@@ -163,6 +163,23 @@ export function uploadImage(file: Blob): Promise<string> {
       throw Error(`upload Error: ${res?.msg}`);
     });
 }
+export async function uploadFile(file: File): Promise<string> {
+  const body = new FormData();
+  body.append("file", file);
+  
+  const response = await fetch(UPLOAD_URL, {
+    method: "post",
+    body,
+    mode: "cors",
+    credentials: "include",
+  });
+  
+  const res = await response.json();
+  if (res?.code == 0 && res?.data) {
+    return res?.data;
+  }
+  throw Error(`upload Error: ${res?.msg}`);
+}
 
 export function removeImage(imageUrl: string) {
   return fetch(imageUrl, {
