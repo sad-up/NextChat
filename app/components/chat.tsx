@@ -34,7 +34,7 @@ import ConfirmIcon from "../icons/confirm.svg";
 import CloseIcon from "../icons/close.svg";
 import CancelIcon from "../icons/cancel.svg";
 import ImageIcon from "../icons/image.svg";
-
+import UploadFileIcon from "../icons/upload.svg";
 import LightIcon from "../icons/light.svg";
 import DarkIcon from "../icons/dark.svg";
 import AutoIcon from "../icons/auto.svg";
