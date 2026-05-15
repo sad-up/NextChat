@@ -35,6 +35,7 @@ import CloseIcon from "../icons/close.svg";
 import CancelIcon from "../icons/cancel.svg";
 import ImageIcon from "../icons/image.svg";
 import UploadFileIcon from "../icons/upload.svg";
+
 import LightIcon from "../icons/light.svg";
 import DarkIcon from "../icons/dark.svg";
 import AutoIcon from "../icons/auto.svg";
@@ -61,12 +62,12 @@ import {
   useChatStore,
   usePluginStore,
 } from "../store";
-import type { AttachedFile } from "../typing";
 
 import {
   autoGrowTextArea,
   copyToClipboard,
   getMessageImages,
+  getMessageFiles,
   getMessageTextContent,
   isDalle3,
   isVisionModel,
@@ -1010,7 +1011,7 @@ function _Chat() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isScrolledToBottom = scrollRef?.current
     ? Math.abs(
-        scrollRef.current.scrollHeight -
+      scrollRef.current.scrollHeight -
       (scrollRef.current.scrollTop + scrollRef.current.clientHeight),
     ) <= 1
     : false;
@@ -1119,7 +1120,9 @@ function _Chat() {
       return;
     }
     setIsLoading(true);
-    
+
+    console.log(`Sending message with ${attachImages.length} images and ${attachFiles.length} files`);
+
     chatStore.onUserInput(
       userInput,
       attachImages,
@@ -1127,7 +1130,7 @@ function _Chat() {
       attachFiles,
     ).then(() => setIsLoading(false));
     setAttachImages([]);
-   setAttachFiles([]);
+    setAttachFiles([]);
     chatStore.setLastInput(userInput);
     setUserInput("");
     setPromptHints([]);
@@ -1364,7 +1367,7 @@ function _Chat() {
       .concat(
         isLoading
           ? [
-              {
+            {
               ...createMessage({
                 role: "assistant",
                 content: "……",
@@ -1377,7 +1380,7 @@ function _Chat() {
       .concat(
         userInput.length > 0 && config.sendPreviewBubble
           ? [
-              {
+            {
               ...createMessage({
                 role: "user",
                 content: userInput,
@@ -1481,7 +1484,7 @@ function _Chat() {
         if (payload.key || payload.url) {
           showConfirm(
             Locale.URLCommand.Settings +
-              `\n${JSON.stringify(payload, null, 4)}`,
+            `\n${JSON.stringify(payload, null, 4)}`,
           ).then((res) => {
             if (!res) return;
             if (payload.key) {
@@ -1608,6 +1611,7 @@ function _Chat() {
     }
     setAttachImages(images);
   }
+
   async function uploadFile() {
     const files: { url: string; name: string }[] = [];
     files.push(...attachFiles);
@@ -1655,21 +1659,7 @@ function _Chat() {
     });
 
     files.push(...newFiles);
-    setAttachedFiles(files);
-  }
-
-  function readFileAsText(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        resolve(e.target?.result as string);
-      };
-      reader.onerror = reject;
-      reader.readAsText(file);
-    });
-  }
-
-  
+    setAttachFiles(files);
   }
 
   // 快捷键 shortcut keys
@@ -2083,7 +2073,7 @@ function _Chat() {
                                       <img
                                         className={
                                           styles[
-                                            "chat-message-item-image-multi"
+                                          "chat-message-item-image-multi"
                                           ]
                                         }
                                         key={index}
@@ -2144,13 +2134,11 @@ function _Chat() {
                 uploadImage={uploadImage}
                 uploadFile={uploadFile}
                 setAttachImages={setAttachImages}
-                
                 setUploading={setUploading}
                 showPromptModal={() => setShowPromptModal(true)}
                 scrollToBottom={scrollToBottom}
                 hitBottom={hitBottom}
                 uploading={uploading}
-                
                 showPromptHints={() => {
                   // Click again to close
                   if (promptHints.length > 0) {
@@ -2181,13 +2169,13 @@ function _Chat() {
                           <div className={styles["attached-file-name"]}>
                             {file.name}
                           </div>
-                          
                         </div>
                         <div className={styles["attached-file-delete"]}>
                           <DeleteImageButton
                             deleteImage={() => {
-                             setAttachFiles(
+                              setAttachFiles(
                                 attachFiles.filter((_, i) => i !== index),
+                              );
                             }}
                           />
                         </div>
@@ -2244,7 +2232,6 @@ function _Chat() {
                     })}
                   </div>
                 )}
-                
                 <IconButton
                   icon={<SendWhiteIcon />}
                   text={Locale.Chat.Send}
