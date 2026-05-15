@@ -28,4 +28,5 @@ export interface AttachedFile {
   content: string;
   type: string;
   size: number;
+  url?: string;
 }
