@@ -1132,9 +1132,12 @@ function _Chat() {
       url: f.url!,
       filename: f.name,
     })).filter(f => f.url) as { url: string; filename: string; }[];
-    chatStore
-      .onUserInput(inputWithFiles, attachImages, undefined, fileAttachments)
-      .then(() => setIsLoading(false));
+    (chatStore as any).onUserInput(
+      inputWithFiles,
+      attachImages,
+      undefined,
+      fileAttachments,
+    ).then(() => setIsLoading(false));
     setAttachImages([]);
     setAttachedFiles([]);
     chatStore.setLastInput(userInput);
