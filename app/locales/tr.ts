@@ -77,6 +77,7 @@ const tr: PartialLocaleType = {
       Clear: "Sohbeti temizle",
       Settings: "Sohbet ayarları",
       UploadImage: "Resim yükle",
+      UploadFile: "Dosya yükle",
     },
     Rename: "Sohbeti yeniden adlandır",
     Typing: "Yazıyor…",
