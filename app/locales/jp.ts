@@ -77,6 +77,7 @@ const jp: PartialLocaleType = {
       Clear: "チャットをクリア",
       Settings: "チャット設定",
       UploadImage: "画像をアップロード",
+      UploadFile: "ファイルをアップロード",
     },
     Rename: "チャットの名前を変更",
     Typing: "入力中…",
