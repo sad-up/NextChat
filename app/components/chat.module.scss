@@ -42,6 +42,73 @@
   }
 }
 
+.attached-files {
+  position: absolute;
+  left: 30px;
+  bottom: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.attached-file {
+  cursor: default;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: rgba($color: #888, $alpha: 0.2) 1px solid;
+  border-radius: 8px;
+  background-color: var(--white);
+  max-width: 300px;
+
+  .attached-file-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  .attached-file-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .attached-file-name {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--black);
+  }
+
+  .attached-file-size {
+    font-size: 11px;
+    color: var(--gray);
+  }
+
+  .attached-file-delete {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+
+    :global(.clickable) {
+      padding: 4px;
+    }
+  }
+}
+
 .chat-input-actions {
   display: flex;
   flex-wrap: wrap;
