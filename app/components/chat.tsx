@@ -1127,10 +1127,13 @@ function _Chat() {
     const textContent = textFiles.map(f => `--- File: ${f.name} ---\n${f.content}`).join('\n\n');
     let inputWithFiles = textContent ? `${userInput}\n\n${textContent}` : userInput;
 
-    const fileUrls = binaryFiles.map(f => f.url!).filter(Boolean) as string[];
-    const allAttachments = [...attachImages, ...fileUrls];
+    // 准备文件附件
+    const fileAttachments = binaryFiles.map(f => ({
+      url: f.url!,
+      filename: f.name,
+    })).filter(f => f.url) as { url: string; filename: string; }[];
     chatStore
-      .onUserInput(inputWithFiles, allAttachments.length > 0 ? allAttachments : undefined)
+      .onUserInput(inputWithFiles, attachImages, fileAttachments)
       .then(() => setIsLoading(false));
     setAttachImages([]);
     setAttachedFiles([]);
@@ -1284,7 +1287,7 @@ function _Chat() {
     setIsLoading(true);
     const textContent = getMessageTextContent(userMessage);
     const images = getMessageImages(userMessage);
-    chatStore.onUserInput(textContent, images).then(() => setIsLoading(false));
+    chatStore.onUserInput(textContent, images, undefined).then(() => setIsLoading(false));
     inputRef.current?.focus();
   };
 
