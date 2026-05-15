@@ -1,5 +1,20 @@
 @import "../styles/animation.scss";
 
+@mixin show {
+  transform: translateY(0);
+  position: relative;
+  transition: all ease 0.3s;
+  opacity: 1;
+}
+
+@mixin hide {
+  transform: translateY(-50%);
+  position: absolute;
+  transition: all ease 0.1s;
+  opacity: 0;
+}
+
+
 .attach-images {
   position: absolute;
   left: 30px;
@@ -313,19 +328,7 @@
   );
   mask-image: $linear;
 
-  @mixin show {
-    transform: translateY(0);
-    position: relative;
-    transition: all ease 0.3s;
-    opacity: 1;
-  }
-
-  @mixin hide {
-    transform: translateY(-50%);
-    position: absolute;
-    transition: all ease 0.1s;
-    opacity: 0;
-  }
+ 
 
   &-tips {
     @include show;
