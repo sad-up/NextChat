@@ -77,6 +77,7 @@ const id: PartialLocaleType = {
       Clear: "Hapus Obrolan",
       Settings: "Pengaturan Obrolan",
       UploadImage: "Unggah Gambar",
+      UploadFile: "Unggah File",
     },
     Rename: "Ganti Nama Obrolan",
     Typing: "Sedang Mengetik…",
