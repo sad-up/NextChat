@@ -494,13 +494,16 @@ function useScrollToBottom(
 
 export function ChatActions(props: {
   uploadImage: () => void;
+  uploadFile: () => void;
   setAttachImages: (images: string[]) => void;
+  setAttachedFiles: (files: AttachedFile[]) => void;
   setUploading: (uploading: boolean) => void;
   showPromptModal: () => void;
   scrollToBottom: () => void;
   showPromptHints: () => void;
   hitBottom: boolean;
   uploading: boolean;
+  attachedFiles: AttachedFile[];
   setShowShortcutKeyModal: React.Dispatch<React.SetStateAction<boolean>>;
   setUserInput: (input: string) => void;
   setShowChatSidePanel: React.Dispatch<React.SetStateAction<boolean>>;
@@ -630,6 +633,11 @@ export function ChatActions(props: {
           />
         )}
         <ChatAction
+          onClick={props.uploadFile}
+          text={Locale.Chat.InputActions.UploadFile}
+          icon={props.uploading ? <LoadingButtonIcon /> : <UploadFileIcon />}
+        />
+        <ChatAction
           onClick={nextTheme}
           text={Locale.Chat.InputActions.Theme[theme]}
           icon={
@@ -684,11 +692,10 @@ export function ChatActions(props: {
           <Selector
             defaultSelectedValue={`${currentModel}@${currentProviderName}`}
             items={models.map((m) => ({
-              title: `${m.displayName}${
-                m?.provider?.providerName
-                  ? " (" + m?.provider?.providerName + ")"
-                  : ""
-              }`,
+              title: `${m.displayName}${m?.provider?.providerName
+                ? " (" + m?.provider?.providerName + ")"
+                : ""
+                }`,
               value: `${m.name}@${m?.provider?.providerName}`,
             }))}
             onClose={() => setShowModelSelector(false)}
@@ -1006,8 +1013,8 @@ function _Chat() {
   const isScrolledToBottom = scrollRef?.current
     ? Math.abs(
         scrollRef.current.scrollHeight -
-          (scrollRef.current.scrollTop + scrollRef.current.clientHeight),
-      ) <= 1
+      (scrollRef.current.scrollTop + scrollRef.current.clientHeight),
+    ) <= 1
     : false;
   const isAttachWithTop = useMemo(() => {
     const lastMessage = scrollRef.current?.lastElementChild as HTMLElement;
@@ -1033,6 +1040,7 @@ function _Chat() {
   const isMobileScreen = useMobileScreen();
   const navigate = useNavigate();
   const [attachImages, setAttachImages] = useState<string[]>([]);
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [uploading, setUploading] = useState(false);
 
   // prompt hints
@@ -1354,26 +1362,26 @@ function _Chat() {
         isLoading
           ? [
               {
-                ...createMessage({
-                  role: "assistant",
-                  content: "……",
-                }),
-                preview: true,
-              },
-            ]
+              ...createMessage({
+                role: "assistant",
+                content: "……",
+              }),
+              preview: true,
+            },
+          ]
           : [],
       )
       .concat(
         userInput.length > 0 && config.sendPreviewBubble
           ? [
               {
-                ...createMessage({
-                  role: "user",
-                  content: userInput,
-                }),
-                preview: true,
-              },
-            ]
+              ...createMessage({
+                role: "user",
+                content: userInput,
+              }),
+              preview: true,
+            },
+          ]
           : [],
       );
   }, [
@@ -1596,6 +1604,113 @@ function _Chat() {
       images.splice(3, imagesLength - 3);
     }
     setAttachImages(images);
+  }
+  async function uploadFile() {
+    const acceptedTypes = [
+      ".txt", ".md", ".markdown", ".rtf",
+      ".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx", ".csv",
+      ".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".c", ".cpp", ".h", ".hpp",
+      ".html", ".htm", ".css", ".json", ".xml", ".yaml", ".yml",
+      ".tsv", ".log",
+    ];
+
+    const files: AttachedFile[] = [];
+    files.push(...attachedFiles);
+
+    files.push(
+      ...(await new Promise<AttachedFile[]>((res, rej) => {
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.accept = acceptedTypes.join(",");
+        fileInput.multiple = true;
+        fileInput.onchange = async (event: any) => {
+          setUploading(true);
+          const selectedFiles = event.target.files;
+          const filesData: AttachedFile[] = [];
+
+          for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+            try {
+              const content = await readFileAsText(file);
+              filesData.push({
+                name: file.name,
+                content: content,
+                type: file.type || getMimeType(file.name),
+                size: file.size,
+              });
+
+              if (filesData.length === selectedFiles.length) {
+                setUploading(false);
+                res(filesData);
+              }
+            } catch (e) {
+              setUploading(false);
+              rej(e);
+            }
+          }
+        };
+        fileInput.click();
+      })),
+    );
+
+    setAttachedFiles(files);
+  }
+
+  function readFileAsText(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        resolve(e.target?.result as string);
+      };
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+  }
+
+  function getMimeType(filename: string): string {
+    const ext = filename.split(".").pop()?.toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      txt: "text/plain",
+      md: "text/markdown",
+      markdown: "text/markdown",
+      rtf: "application/rtf",
+      doc: "application/msword",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      pdf: "application/pdf",
+      ppt: "application/vnd.ms-powerpoint",
+      pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      xls: "application/vnd.ms-excel",
+      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      csv: "text/csv",
+      py: "text/x-python",
+      js: "text/javascript",
+      jsx: "text/javascript",
+      ts: "text/typescript",
+      tsx: "text/typescript",
+      java: "text/x-java",
+      c: "text/x-c",
+      cpp: "text/x-c++",
+      h: "text/x-c",
+      hpp: "text/x-c++",
+      html: "text/html",
+      htm: "text/html",
+      css: "text/css",
+      json: "application/json",
+      xml: "application/xml",
+      yaml: "text/x-yaml",
+      yml: "text/x-yaml",
+      tsv: "text/tab-separated-values",
+      log: "text/plain",
+    };
+    return mimeTypes[ext || ""] || "application/octet-stream";
+  }
+
+  function formatFileSize(bytes: number): string {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   }
 
   // 快捷键 shortcut keys
@@ -2048,12 +2163,15 @@ function _Chat() {
 
               <ChatActions
                 uploadImage={uploadImage}
+                uploadFile={uploadFile}
                 setAttachImages={setAttachImages}
+                setAttachedFiles={setAttachedFiles}
                 setUploading={setUploading}
                 showPromptModal={() => setShowPromptModal(true)}
                 scrollToBottom={scrollToBottom}
                 hitBottom={hitBottom}
                 uploading={uploading}
+                attachedFiles={attachedFiles}
                 showPromptHints={() => {
                   // Click again to close
                   if (promptHints.length > 0) {
@@ -2108,6 +2226,39 @@ function _Chat() {
                               deleteImage={() => {
                                 setAttachImages(
                                   attachImages.filter((_, i) => i !== index),
+                                );
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {attachedFiles.length != 0 && (
+                  <div className={styles["attached-files"]}>
+                    {attachedFiles.map((file, index) => {
+                      return (
+                        <div
+                          key={index}
+                          className={styles["attached-file"]}
+                        >
+                          <div className={styles["attached-file-icon"]}>
+                            <UploadFileIcon />
+                          </div>
+                          <div className={styles["attached-file-info"]}>
+                            <div className={styles["attached-file-name"]}>
+                              {file.name}
+                            </div>
+                            <div className={styles["attached-file-size"]}>
+                              {formatFileSize(file.size)}
+                            </div>
+                          </div>
+                          <div className={styles["attached-file-delete"]}>
+                            <DeleteImageButton
+                              deleteImage={() => {
+                                setAttachedFiles(
+                                  attachedFiles.filter((_, i) => i !== index),
                                 );
                               }}
                             />
