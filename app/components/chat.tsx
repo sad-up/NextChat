@@ -1620,10 +1620,10 @@ function _Chat() {
       ".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx", ".csv",
       ".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".c", ".cpp", ".h", ".hpp",
       ".html", ".htm", ".css", ".json", ".xml", ".yaml", ".yml",
-      ".tsv", ".log", ".csv",
+      ".tsv", ".log"
     ];
     const binaryExtensions = [
-      ".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx",
+      ".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx", ".csv",
     ];
 
     const acceptedTypes = [...textExtensions, ...binaryExtensions];
@@ -1650,17 +1650,19 @@ function _Chat() {
               let content = "";
               let url: string | undefined;
               
-              if (textExtensions.includes(`.${ext}`)) {
-                content = await readFileAsText(file);
-              } else if (binaryExtensions.includes(`.${ext}`)) {
+              if (binaryExtensions.includes(`.${ext}`)) {
                 try {
                   url = await uploadFileRemote(file);
                   content = `[File uploaded: ${file.name} (${formatFileSize(file.size)})]`;
                 } catch (uploadError) {
                   console.error(`Failed to upload ${file.name}:`, uploadError);
-                  content = `[File upload failed: ${file.name} - please try again]`;
+                  content = "";
+                  alert(`文件上传失败: ${file.name}\n错误: ${uploadError.message}\n\n请检查服务器配置或使用文本文件。`);
+                  continue;
                   url = undefined;
                 }
+                } else if (textExtensions.includes(`.${ext}`)) {
+                content = await readFileAsText(file);
               } else {
                 content = `[Unsupported file type: ${file.name}]`;
               }
