@@ -80,6 +80,7 @@ import {
 } from "../utils";
 
 import { uploadImage as uploadImageRemote, uploadFile as uploadFileRemote } from "@/app/utils/chat";
+import { parseExcel, isExcelFile, formatExcelContent } from "@/app/utils/excel";
 
 import dynamic from "next/dynamic";
 
@@ -1621,38 +1622,66 @@ function _Chat() {
       fileInput.type = "file";
       fileInput.accept = ".txt,.md,.markdown,.rtf,.py,.js,.jsx,.ts,.tsx,.java,.c,.cpp,.h,.hpp,.html,.htm,.css,.json,.xml,.yaml,.yml,.tsv,.log,.csv,.doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx";
       fileInput.multiple = true;
-      fileInput.onchange = (event: any) => {
+      fileInput.onchange = async (event: any) => {
         setUploading(true);
         const selectedFiles = event.target.files;
         const filesData: { url: string; name: string }[] = [];
         let completedFiles = 0;
+        const excelPromises: Promise<void>[] = [];
 
         for (let i = 0; i < selectedFiles.length; i++) {
           const file = selectedFiles[i];
-          uploadFileRemote(file)
-            .then((dataUrl) => {
-              filesData.push({
-                url: dataUrl,
-                name: file.name,
-              });
-              completedFiles++;
-              if (filesData.length === selectedFiles.length) {
+          
+          if (isExcelFile(file.name)) {
+            excelPromises.push(
+              parseExcel(file).then(async (result) => {
+                const excelContent = formatExcelContent(result);
+                await chatStore.onUserInput(excelContent, [], false, []);
+              }).catch((e) => {
+                console.error("Excel parse error:", e);
+              })
+            );
+            completedFiles++;
+            if (completedFiles === selectedFiles.length) {
+              Promise.all(excelPromises).then(() => {
                 setUploading(false);
                 res(filesData);
-              }
-            })
-            .catch((e) => {
-              console.error("Error uploading file:", e);
-              completedFiles++;
-              if (completedFiles === selectedFiles.length) {
-                setUploading(false);
-                if (filesData.length > 0) {
-                  res(filesData);
-                } else {
-                  rej(e);
+              });
+            }
+          } else {
+            uploadFileRemote(file)
+              .then((dataUrl) => {
+                filesData.push({
+                  url: dataUrl,
+                  name: file.name,
+                });
+                completedFiles++;
+                if (completedFiles === selectedFiles.length) {
+                  Promise.all(excelPromises).then(() => {
+                    setUploading(false);
+                    if (filesData.length > 0) {
+                      res(filesData);
+                    } else {
+                      res([]);
+                    }
+                  });
                 }
-              }
-            });
+              })
+              .catch((e) => {
+                console.error("Error uploading file:", e);
+                completedFiles++;
+                if (completedFiles === selectedFiles.length) {
+                  Promise.all(excelPromises).then(() => {
+                    setUploading(false);
+                    if (filesData.length > 0) {
+                      res(filesData);
+                    } else {
+                      rej(e);
+                    }
+                  });
+                }
+              });
+          }
         }
       };
       fileInput.click();
