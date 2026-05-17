@@ -1634,9 +1634,9 @@ function _Chat() {
           
           if (isExcelFile(file.name)) {
             excelPromises.push(
-              parseExcel(file).then(async (result) => {
+              parseExcel(file).then((result) => {
                 const excelContent = formatExcelContent(result);
-                await chatStore.onUserInput(excelContent, [], false, []);
+                setUserInput(prev => prev + (prev ? '\n\n' : '') + excelContent);
               }).catch((e) => {
                 console.error("Excel parse error:", e);
               })
