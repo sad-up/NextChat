@@ -1,10 +1,13 @@
-
 import { getServerSideConfig } from "@/app/config/server";
 import { ModelProvider, OPENAI_BASE_URL } from "@/app/constant";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "../auth";
 
 export const runtime = "nodejs";
+
+export async function OPTIONS() {
+  return NextResponse.json({ body: "OK" }, { status: 200 });
+}
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
@@ -46,12 +49,16 @@ export async function POST(req: NextRequest) {
   if (baseUrl.endsWith("/")) {
     baseUrl = baseUrl.slice(0, -1);
   }
+  if (baseUrl.endsWith("/v1")) {
+    baseUrl = baseUrl.slice(0, -3);
+  }
 
   const body = new FormData();
   body.append("purpose", "user_data");
   body.append("file", file);
 
-  const response = await fetch(`${baseUrl}/v1/files`, {
+  const uploadUrl = `${baseUrl}/v1/files`;
+  const response = await fetch(uploadUrl, {
     method: "POST",
     headers: {
       Authorization: apiKey,
@@ -63,6 +70,31 @@ export async function POST(req: NextRequest) {
   });
 
   const text = await response.text();
+
+  if (!response.ok) {
+    let errorBody: unknown = text;
+    try {
+      errorBody = JSON.parse(text);
+    } catch {}
+
+    return NextResponse.json(
+      {
+        error: {
+          message:
+            typeof errorBody === "object" &&
+            errorBody &&
+            "error" in errorBody &&
+            typeof (errorBody as any).error?.message === "string"
+              ? (errorBody as any).error.message
+              : response.statusText || "OpenAI file upload failed",
+          status: response.status,
+          uploadUrl,
+          body: errorBody,
+        },
+      },
+      { status: response.status },
+    );
+  }
 
   return new NextResponse(text, {
     status: response.status,
