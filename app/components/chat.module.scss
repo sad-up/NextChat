@@ -113,6 +113,10 @@
     color: var(--gray);
   }
 
+  .attached-file-error {
+    color: #d94841;
+  }
+
   .attached-file-delete {
     flex-shrink: 0;
     display: flex;
