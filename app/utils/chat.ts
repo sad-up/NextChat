@@ -3,7 +3,7 @@ import {
   UPLOAD_URL,
   REQUEST_TIMEOUT_MS,
 } from "@/app/constant";
-import { MultimodalContent, RequestMessage } from "@/app/client/api";
+import type { MultimodalContent, RequestMessage } from "@/app/client/api";
 import Locale from "@/app/locales";
 import {
   EventStreamContentType,
@@ -182,6 +182,33 @@ export async function uploadFile(file: File): Promise<string> {
     return res?.data;
   }
   throw Error(`upload Error: ${res?.msg}`);
+}
+
+export async function uploadOpenAIFile(
+  file: File,
+): Promise<{ id: string; filename: string }> {
+  const { getHeaders } = await import("@/app/client/api");
+  const body = new FormData();
+  body.append("purpose", "user_data");
+  body.append("file", file);
+
+  const response = await fetch("/api/openai/v1/files", {
+    method: "POST",
+    body,
+    mode: "cors",
+    credentials: "include",
+    headers: getHeaders(true),
+  });
+
+  const res = await response.json();
+  if (!response.ok || !res?.id) {
+    throw Error(`openai file upload error: ${res?.error?.message ?? res?.msg ?? response.statusText}`);
+  }
+
+  return {
+    id: res.id,
+    filename: res.filename ?? file.name,
+  };
 }
 
 export function removeImage(imageUrl: string) {
