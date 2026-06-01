@@ -2209,7 +2209,7 @@ function _Chat() {
                             {file.uploading
                               ? "Uploading"
                               : file.error
-                              ? "Upload failed"
+                              ? `Upload failed: ${file.error}`
                               : "Ready"}
                           </div>
                         </div>
