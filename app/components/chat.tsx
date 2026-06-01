@@ -79,8 +79,10 @@ import {
   showPlugins,
 } from "../utils";
 
-import { uploadImage as uploadImageRemote, uploadFile as uploadFileRemote } from "@/app/utils/chat";
-import { parseExcel, isExcelFile, formatExcelContent } from "@/app/utils/excel";
+import {
+  uploadImage as uploadImageRemote,
+  uploadOpenAIFile,
+} from "@/app/utils/chat";
 
 import dynamic from "next/dynamic";
 
@@ -1040,7 +1042,9 @@ function _Chat() {
   const isMobileScreen = useMobileScreen();
   const navigate = useNavigate();
   const [attachImages, setAttachImages] = useState<string[]>([]);
-  const [attachFiles, setAttachFiles] = useState<{ url: string; name: string }[]>([]);
+  const [attachFiles, setAttachFiles] = useState<
+    { url: string; name: string; fileId?: string }[]
+  >([]);
   const [uploading, setUploading] = useState(false);
 
   // prompt hints
@@ -1124,15 +1128,17 @@ function _Chat() {
 
     console.log(`Sending message with ${attachImages.length} images and ${attachFiles.length} files`);
 
+    const input = userInput.trim() || "Please read and analyze the attached file.";
+
     chatStore.onUserInput(
-      userInput,
+      input,
       attachImages,
       undefined,
       attachFiles,
     ).then(() => setIsLoading(false));
     setAttachImages([]);
     setAttachFiles([]);
-    chatStore.setLastInput(userInput);
+    chatStore.setLastInput(input);
     setUserInput("");
     setPromptHints([]);
     if (!isMobileScreen) inputRef.current?.focus();
@@ -1614,10 +1620,12 @@ function _Chat() {
   }
 
   async function uploadFile() {
-    const files: { url: string; name: string }[] = [];
+    const files: { url: string; name: string; fileId?: string }[] = [];
     files.push(...attachFiles);
 
-    const newFiles = await new Promise<{ url: string; name: string }[]>((res, rej) => {
+    const newFiles = await new Promise<
+      { url: string; name: string; fileId?: string }[]
+    >((res, rej) => {
       const fileInput = document.createElement("input");
       fileInput.type = "file";
       fileInput.accept = ".txt,.md,.markdown,.rtf,.py,.js,.jsx,.ts,.tsx,.java,.c,.cpp,.h,.hpp,.html,.htm,.css,.json,.xml,.yaml,.yml,.tsv,.log,.csv,.doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx";
@@ -1625,63 +1633,37 @@ function _Chat() {
       fileInput.onchange = async (event: any) => {
         setUploading(true);
         const selectedFiles = event.target.files;
-        const filesData: { url: string; name: string }[] = [];
+        const filesData: { url: string; name: string; fileId?: string }[] = [];
         let completedFiles = 0;
-        const excelPromises: Promise<void>[] = [];
 
         for (let i = 0; i < selectedFiles.length; i++) {
           const file = selectedFiles[i];
-          
-          if (isExcelFile(file.name)) {
-            excelPromises.push(
-              parseExcel(file).then((result) => {
-                const excelContent = formatExcelContent(result);
-                setUserInput(prev => prev + (prev ? '\n\n' : '') + excelContent);
-              }).catch((e) => {
-                console.error("Excel parse error:", e);
-              })
-            );
-            completedFiles++;
-            if (completedFiles === selectedFiles.length) {
-              Promise.all(excelPromises).then(() => {
+
+          uploadOpenAIFile(file)
+            .then((uploadedFile) => {
+              filesData.push({
+                url: uploadedFile.id,
+                name: uploadedFile.filename,
+                fileId: uploadedFile.id,
+              });
+              completedFiles++;
+              if (completedFiles === selectedFiles.length) {
                 setUploading(false);
                 res(filesData);
-              });
-            }
-          } else {
-            uploadFileRemote(file)
-              .then((dataUrl) => {
-                filesData.push({
-                  url: dataUrl,
-                  name: file.name,
-                });
-                completedFiles++;
-                if (completedFiles === selectedFiles.length) {
-                  Promise.all(excelPromises).then(() => {
-                    setUploading(false);
-                    if (filesData.length > 0) {
-                      res(filesData);
-                    } else {
-                      res([]);
-                    }
-                  });
+              }
+            })
+            .catch((e) => {
+              console.error("Error uploading file:", e);
+              completedFiles++;
+              if (completedFiles === selectedFiles.length) {
+                setUploading(false);
+                if (filesData.length > 0) {
+                  res(filesData);
+                } else {
+                  rej(e);
                 }
-              })
-              .catch((e) => {
-                console.error("Error uploading file:", e);
-                completedFiles++;
-                if (completedFiles === selectedFiles.length) {
-                  Promise.all(excelPromises).then(() => {
-                    setUploading(false);
-                    if (filesData.length > 0) {
-                      res(filesData);
-                    } else {
-                      rej(e);
-                    }
-                  });
-                }
-              });
-          }
+              }
+            });
         }
       };
       fileInput.click();
@@ -2116,22 +2098,37 @@ function _Chat() {
                             )}
                             {getMessageFiles(message).length > 0 && (
                               <div className={styles["chat-message-files"]}>
-                                {getMessageFiles(message).map((file, index) => (
-                                  <a
-                                    key={index}
-                                    href={file.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={styles["chat-message-file"]}
-                                  >
+                                {getMessageFiles(message).map((file, index) => {
+                                  const content = (
+                                    <>
                                     <div className={styles["chat-message-file-icon"]}>
                                       <UploadFileIcon />
                                     </div>
                                     <div className={styles["chat-message-file-name"]}>
                                       {file.filename}
                                     </div>
-                                  </a>
-                                ))}
+                                    </>
+                                  );
+
+                                  return file.fileId ? (
+                                    <div
+                                      key={index}
+                                      className={styles["chat-message-file"]}
+                                    >
+                                      {content}
+                                    </div>
+                                  ) : (
+                                    <a
+                                      key={index}
+                                      href={file.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={styles["chat-message-file"]}
+                                    >
+                                      {content}
+                                    </a>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
