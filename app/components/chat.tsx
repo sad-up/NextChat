@@ -126,6 +126,7 @@ import { createTTSPlayer } from "../utils/audio";
 import { MsEdgeTTS, OUTPUT_FORMAT } from "../utils/ms_edge_tts";
 
 import { isEmpty } from "lodash-es";
+import { nanoid } from "nanoid";
 import { getModelProvider } from "../utils/model";
 import { RealtimeChat } from "@/app/components/realtime-chat";
 import clsx from "clsx";
@@ -138,6 +139,15 @@ const ttsPlayer = createTTSPlayer();
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
 });
+
+type AttachedFile = {
+  id: string;
+  url: string;
+  name: string;
+  fileId?: string;
+  uploading?: boolean;
+  error?: string;
+};
 
 const MCPAction = () => {
   const navigate = useNavigate();
@@ -1042,9 +1052,7 @@ function _Chat() {
   const isMobileScreen = useMobileScreen();
   const navigate = useNavigate();
   const [attachImages, setAttachImages] = useState<string[]>([]);
-  const [attachFiles, setAttachFiles] = useState<
-    { url: string; name: string; fileId?: string }[]
-  >([]);
+  const [attachFiles, setAttachFiles] = useState<AttachedFile[]>([]);
   const [uploading, setUploading] = useState(false);
 
   // prompt hints
@@ -1117,6 +1125,14 @@ function _Chat() {
 
   const doSubmit = (userInput: string) => {
     if (userInput.trim() === "" && isEmpty(attachImages) && attachFiles.length === 0) return;
+    if (attachFiles.some((file) => file.uploading)) {
+      showToast("File upload is still in progress.");
+      return;
+    }
+    if (attachFiles.some((file) => file.error || !file.fileId)) {
+      showToast("Please remove failed files before sending.");
+      return;
+    }
     const matchCommand = chatCommands.match(userInput);
     if (matchCommand.matched) {
       setUserInput("");
@@ -1134,7 +1150,7 @@ function _Chat() {
       input,
       attachImages,
       undefined,
-      attachFiles,
+      attachFiles.map(({ url, name, fileId }) => ({ url, name, fileId })),
     ).then(() => setIsLoading(false));
     setAttachImages([]);
     setAttachFiles([]);
@@ -1620,57 +1636,61 @@ function _Chat() {
   }
 
   async function uploadFile() {
-    const files: { url: string; name: string; fileId?: string }[] = [];
-    files.push(...attachFiles);
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = ".txt,.md,.markdown,.rtf,.py,.js,.jsx,.ts,.tsx,.java,.c,.cpp,.h,.hpp,.html,.htm,.css,.json,.xml,.yaml,.yml,.tsv,.log,.csv,.doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx";
+    fileInput.multiple = true;
+    fileInput.onchange = async (event: any) => {
+      const selectedFiles = Array.from(event.target.files ?? []) as File[];
+      if (selectedFiles.length === 0) return;
 
-    const newFiles = await new Promise<
-      { url: string; name: string; fileId?: string }[]
-    >((res, rej) => {
-      const fileInput = document.createElement("input");
-      fileInput.type = "file";
-      fileInput.accept = ".txt,.md,.markdown,.rtf,.py,.js,.jsx,.ts,.tsx,.java,.c,.cpp,.h,.hpp,.html,.htm,.css,.json,.xml,.yaml,.yml,.tsv,.log,.csv,.doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx";
-      fileInput.multiple = true;
-      fileInput.onchange = async (event: any) => {
-        setUploading(true);
-        const selectedFiles = event.target.files;
-        const filesData: { url: string; name: string; fileId?: string }[] = [];
-        let completedFiles = 0;
+      const pendingFiles: AttachedFile[] = selectedFiles.map((file) => ({
+        id: nanoid(),
+        url: "",
+        name: file.name,
+        uploading: true,
+      }));
 
-        for (let i = 0; i < selectedFiles.length; i++) {
-          const file = selectedFiles[i];
+      setUploading(true);
+      setAttachFiles((current) => current.concat(pendingFiles));
 
-          uploadOpenAIFile(file)
-            .then((uploadedFile) => {
-              filesData.push({
-                url: uploadedFile.id,
-                name: uploadedFile.filename,
-                fileId: uploadedFile.id,
-              });
-              completedFiles++;
-              if (completedFiles === selectedFiles.length) {
-                setUploading(false);
-                res(filesData);
-              }
-            })
-            .catch((e) => {
-              console.error("Error uploading file:", e);
-              completedFiles++;
-              if (completedFiles === selectedFiles.length) {
-                setUploading(false);
-                if (filesData.length > 0) {
-                  res(filesData);
-                } else {
-                  rej(e);
-                }
-              }
-            });
-        }
-      };
-      fileInput.click();
-    });
+      await Promise.allSettled(
+        selectedFiles.map(async (file, index) => {
+          try {
+            const uploadedFile = await uploadOpenAIFile(file);
+            setAttachFiles((current) =>
+              current.map((item) =>
+                item.id === pendingFiles[index].id
+                  ? {
+                      id: item.id,
+                      url: uploadedFile.id,
+                      name: uploadedFile.filename,
+                      fileId: uploadedFile.id,
+                      uploading: false,
+                    }
+                  : item,
+              ),
+            );
+          } catch (e) {
+            console.error("Error uploading file:", e);
+            setAttachFiles((current) =>
+              current.map((item) =>
+                item.id === pendingFiles[index].id
+                  ? {
+                      ...item,
+                      uploading: false,
+                      error: (e as Error).message,
+                    }
+                  : item,
+              ),
+            );
+          }
+        }),
+      );
 
-    files.push(...newFiles);
-    setAttachFiles(files);
+      setUploading(false);
+    };
+    fileInput.click();
   }
 
   // 快捷键 shortcut keys
@@ -2167,15 +2187,30 @@ function _Chat() {
                   {attachFiles.map((file, index) => {
                     return (
                       <div
-                        key={index}
+                        key={file.id}
                         className={styles["attached-file"]}
                       >
                         <div className={styles["attached-file-icon"]}>
-                          <UploadFileIcon />
+                          {file.uploading ? (
+                            <LoadingButtonIcon />
+                          ) : (
+                            <UploadFileIcon />
+                          )}
                         </div>
                         <div className={styles["attached-file-info"]}>
                           <div className={styles["attached-file-name"]}>
                             {file.name}
+                          </div>
+                          <div
+                            className={clsx(styles["attached-file-size"], {
+                              [styles["attached-file-error"]]: !!file.error,
+                            })}
+                          >
+                            {file.uploading
+                              ? "Uploading"
+                              : file.error
+                              ? "Upload failed"
+                              : "Ready"}
                           </div>
                         </div>
                         <div className={styles["attached-file-delete"]}>
