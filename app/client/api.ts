@@ -42,6 +42,7 @@ export interface MultimodalContent {
   file_url?: {
     url: string;
     filename?: string;
+    file_id?: string;
   };
 }
 
