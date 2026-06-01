@@ -30,6 +30,7 @@ import {
   ChatOptions,
   getHeaders,
   LLMApi,
+  LLMConfig,
   LLMModel,
   LLMUsage,
   MultimodalContent,
@@ -67,6 +68,22 @@ export interface RequestPayload {
   top_p: number;
   max_tokens?: number;
   max_completion_tokens?: number;
+}
+
+type ResponsesInputContent =
+  | { type: "input_text"; text: string }
+  | { type: "input_image"; image_url: string }
+  | { type: "input_file"; file_id?: string; file_url?: string };
+
+interface ResponsesPayload {
+  model: string;
+  input: {
+    role: "developer" | "system" | "user" | "assistant";
+    content: string | ResponsesInputContent[];
+  }[];
+  temperature?: number;
+  top_p?: number;
+  max_output_tokens?: number;
 }
 
 export interface DalleRequestPayload {
@@ -145,6 +162,93 @@ export class ChatGPTApi implements LLMApi {
     return res.choices?.at(0)?.message?.content ?? res;
   }
 
+  extractResponsesMessage(res: any) {
+    if (res.error) {
+      return "```\n" + JSON.stringify(res, null, 4) + "\n```";
+    }
+    if (typeof res.output_text === "string") {
+      return res.output_text;
+    }
+
+    const texts: string[] = [];
+    for (const item of res.output ?? []) {
+      for (const content of item.content ?? []) {
+        if (typeof content.text === "string") {
+          texts.push(content.text);
+        }
+      }
+    }
+
+    return texts.join("\n") || res;
+  }
+
+  hasOpenAIFile(messages: ChatOptions["messages"]) {
+    return messages.some(
+      (message) =>
+        Array.isArray(message.content) &&
+        message.content.some((part) => part.type === "file_url"),
+    );
+  }
+
+  buildResponsesPayload(
+    messages: ChatOptions["messages"],
+    modelConfig: LLMConfig,
+    isO1OrO3: boolean,
+    isGpt5: boolean,
+  ): ResponsesPayload {
+    const input: ResponsesPayload["input"] = [];
+
+    for (const message of messages) {
+      if (isO1OrO3 && message.role === "system") continue;
+
+      if (typeof message.content === "string") {
+        input.push({
+          role: message.role,
+          content: message.content,
+        });
+        continue;
+      }
+
+      const content = message.content
+        .map((part): ResponsesInputContent | undefined => {
+          if (part.type === "text") {
+            return { type: "input_text", text: part.text ?? "" };
+          }
+          if (part.type === "image_url" && part.image_url?.url) {
+            return { type: "input_image", image_url: part.image_url.url };
+          }
+          if (part.type === "file_url" && part.file_url) {
+            return {
+              type: "input_file",
+              file_id: part.file_url.file_id,
+              file_url: part.file_url.file_id ? undefined : part.file_url.url,
+            };
+          }
+        })
+        .filter(Boolean) as ResponsesInputContent[];
+
+      input.push({
+        role: message.role,
+        content,
+      });
+    }
+
+    if (isO1OrO3) {
+      input.unshift({
+        role: "developer",
+        content: "Formatting re-enabled",
+      });
+    }
+
+    return {
+      model: modelConfig.model,
+      input,
+      temperature: !isO1OrO3 && !isGpt5 ? modelConfig.temperature : 1,
+      top_p: !isO1OrO3 ? modelConfig.top_p : 1,
+      max_output_tokens: (modelConfig as any).max_tokens,
+    };
+  }
+
   async speech(options: SpeechOptions): Promise<ArrayBuffer> {
     const requestPayload = {
       model: options.model,
@@ -193,7 +297,7 @@ export class ChatGPTApi implements LLMApi {
       },
     };
 
-    let requestPayload: RequestPayload | DalleRequestPayload;
+    let requestPayload: RequestPayload | DalleRequestPayload | ResponsesPayload;
 
     const isDalle3 = _isDalle3(options.config.model);
     const isO1OrO3 =
@@ -201,6 +305,11 @@ export class ChatGPTApi implements LLMApi {
       options.config.model.startsWith("o3") ||
       options.config.model.startsWith("o4-mini");
     const isGpt5 =  options.config.model.startsWith("gpt-5");
+    const hasOpenAIFile = this.hasOpenAIFile(options.messages);
+    if (hasOpenAIFile && modelConfig.providerName === ServiceProvider.Azure) {
+      throw Error("Azure OpenAI file input is not supported in this chat flow");
+    }
+
     if (isDalle3) {
       const prompt = getMessageTextContent(
         options.messages.slice(-1)?.pop() as any,
@@ -215,6 +324,13 @@ export class ChatGPTApi implements LLMApi {
         quality: options.config?.quality ?? "standard",
         style: options.config?.style ?? "vivid",
       };
+    } else if (hasOpenAIFile) {
+      requestPayload = this.buildResponsesPayload(
+        options.messages,
+        modelConfig,
+        isO1OrO3,
+        isGpt5,
+      ) as any;
     } else {
       const visionModel = isVisionModel(options.config.model);
       const messages: ChatOptions["messages"] = [];
@@ -267,7 +383,7 @@ export class ChatGPTApi implements LLMApi {
 
     console.log("[Request] openai payload: ", requestPayload);
 
-    const shouldStream = !isDalle3 && !!options.config.stream;
+    const shouldStream = !isDalle3 && !hasOpenAIFile && !!options.config.stream;
     const controller = new AbortController();
     options.onController?.(controller);
 
@@ -300,7 +416,11 @@ export class ChatGPTApi implements LLMApi {
         );
       } else {
         chatPath = this.path(
-          isDalle3 ? OpenaiPath.ImagePath : OpenaiPath.ChatPath,
+          isDalle3
+            ? OpenaiPath.ImagePath
+            : hasOpenAIFile
+            ? OpenaiPath.ResponsesPath
+            : OpenaiPath.ChatPath,
         );
       }
       if (shouldStream) {
@@ -420,7 +540,9 @@ export class ChatGPTApi implements LLMApi {
         clearTimeout(requestTimeoutId);
 
         const resJson = await res.json();
-        const message = await this.extractMessage(resJson);
+        const message = hasOpenAIFile
+          ? this.extractResponsesMessage(resJson)
+          : await this.extractMessage(resJson);
         options.onFinish(message, res);
       }
     } catch (e) {
