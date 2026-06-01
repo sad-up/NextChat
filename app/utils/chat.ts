@@ -189,10 +189,9 @@ export async function uploadOpenAIFile(
 ): Promise<{ id: string; filename: string }> {
   const { getHeaders } = await import("@/app/client/api");
   const body = new FormData();
-  body.append("purpose", "user_data");
   body.append("file", file);
 
-  const response = await fetch("/api/openai/v1/files", {
+  const response = await fetch("/api/openai-file", {
     method: "POST",
     body,
     mode: "cors",
