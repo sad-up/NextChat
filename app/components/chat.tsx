@@ -2098,37 +2098,19 @@ function _Chat() {
                             )}
                             {getMessageFiles(message).length > 0 && (
                               <div className={styles["chat-message-files"]}>
-                                {getMessageFiles(message).map((file, index) => {
-                                  const content = (
-                                    <>
+                                {getMessageFiles(message).map((file, index) => (
+                                  <div
+                                    key={index}
+                                    className={styles["chat-message-file"]}
+                                  >
                                     <div className={styles["chat-message-file-icon"]}>
                                       <UploadFileIcon />
                                     </div>
                                     <div className={styles["chat-message-file-name"]}>
                                       {file.filename}
                                     </div>
-                                    </>
-                                  );
-
-                                  return file.fileId ? (
-                                    <div
-                                      key={index}
-                                      className={styles["chat-message-file"]}
-                                    >
-                                      {content}
-                                    </div>
-                                  ) : (
-                                    <a
-                                      key={index}
-                                      href={file.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className={styles["chat-message-file"]}
-                                    >
-                                      {content}
-                                    </a>
-                                  );
-                                })}
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>
