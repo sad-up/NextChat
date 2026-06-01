@@ -192,7 +192,7 @@ export async function uploadOpenAIFile(
   body.append("purpose", "user_data");
   body.append("file", file);
 
-  const response = await fetch("/api/openai-file", {
+  const response = await fetch("/api/openai/v1/files", {
     method: "POST",
     body,
     mode: "cors",
