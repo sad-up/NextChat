@@ -409,7 +409,7 @@ export const useChatStore = createPersistStore(
         attachImages?: string[],
         
         isMcpResponse?: boolean,
-        attachFiles?: { url: string; name: string }[],
+        attachFiles?: { url: string; name: string; fileId?: string }[],
       ) {
         const session = get().currentSession();
         const modelConfig = session.mask.modelConfig;
@@ -444,7 +444,8 @@ export const useChatStore = createPersistStore(
                 type: "file_url" as const,
                 file_url: { 
                   url: file.url, 
-                  filename: file.name 
+                  filename: file.name,
+                  file_id: file.fileId,
                 },
               })),
             );
