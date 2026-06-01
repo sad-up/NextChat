@@ -192,7 +192,7 @@ export async function uploadOpenAIFile(
   body.append("purpose", "user_data");
   body.append("file", file);
 
-  const response = await fetch("/api/openai/v1/files", {
+  const response = await fetch("/api/openai-file", {
     method: "POST",
     body,
     mode: "cors",
@@ -200,9 +200,14 @@ export async function uploadOpenAIFile(
     headers: getHeaders(true),
   });
 
-  const res = await response.json();
+  const res = await response.json().catch(() => null);
   if (!response.ok || !res?.id) {
-    throw Error(`openai file upload error: ${res?.error?.message ?? res?.msg ?? response.statusText}`);
+    throw Error(
+      res?.error?.message ??
+        res?.msg ??
+        response.statusText ??
+        "OpenAI file upload failed",
+    );
   }
 
   return {
