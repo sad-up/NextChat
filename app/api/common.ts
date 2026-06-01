@@ -90,15 +90,27 @@ export async function requestOpenai(req: NextRequest) {
 
   const fetchUrl = cloudflareAIGatewayUrl(`${baseUrl}/${path}`);
   console.log("fetchUrl", fetchUrl);
-  const fetchOptions: RequestInit = {
-    headers: {
+  const shouldUseJsonHeaders = !req.headers
+    .get("content-type")
+    ?.includes("multipart/form-data");
+  const contentType = req.headers.get("content-type");
+  const fetchHeaders: Record<string, string> = {
+    ...(shouldUseJsonHeaders && {
       "Content-Type": "application/json",
-      "Cache-Control": "no-store",
-      [authHeaderName]: authValue,
-      ...(serverConfig.openaiOrgId && {
-        "OpenAI-Organization": serverConfig.openaiOrgId,
+    }),
+    ...(!shouldUseJsonHeaders &&
+      contentType && {
+        "Content-Type": contentType,
       }),
-    },
+    "Cache-Control": "no-store",
+    [authHeaderName]: authValue,
+    ...(serverConfig.openaiOrgId && {
+      "OpenAI-Organization": serverConfig.openaiOrgId,
+    }),
+  };
+
+  const fetchOptions: RequestInit = {
+    headers: fetchHeaders,
     method: req.method,
     body: req.body,
     // to fix #2485: https://stackoverflow.com/questions/55920957/cloudflare-worker-typeerror-one-time-use-body
@@ -109,7 +121,7 @@ export async function requestOpenai(req: NextRequest) {
   };
 
   // #1815 try to refuse gpt4 request
-  if (serverConfig.customModels && req.body) {
+  if (serverConfig.customModels && req.body && shouldUseJsonHeaders) {
     try {
       const clonedBody = await req.text();
       fetchOptions.body = clonedBody;
