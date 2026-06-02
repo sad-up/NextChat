@@ -34,7 +34,7 @@ export const TTSModels = ["tts-1", "tts-1-hd"] as const;
 export type ChatModel = ModelType;
 
 export interface MultimodalContent {
-  type: "text" | "image_url" | "file_url";
+  type: "text" | "image_url" | "file_url" | "file_text";
   text?: string;
   image_url?: {
     url: string;
@@ -43,6 +43,10 @@ export interface MultimodalContent {
     url: string;
     filename?: string;
     file_id?: string;
+  };
+  file_text?: {
+    filename: string;
+    content?: string;
   };
 }
 
