@@ -19,6 +19,40 @@ async function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function getCellText(worksheet: XLSX.WorkSheet, row: number, col: number) {
+  const cell = worksheet[XLSX.utils.encode_cell({ r: row, c: col })];
+  const str = cell ? XLSX.utils.format_cell(cell) : "";
+  return str.length > MAX_CELL_LENGTH
+    ? str.substring(0, MAX_CELL_LENGTH) + "..."
+    : str;
+}
+
+function getVisibleRows(worksheet: XLSX.WorkSheet) {
+  const rangeRef = worksheet["!ref"];
+  if (!rangeRef) return [];
+
+  const range = XLSX.utils.decode_range(rangeRef);
+  const rows: string[][] = [];
+  const maxCol = Math.min(range.e.c, range.s.c + MAX_COLS_PER_ROW - 1);
+
+  for (let row = range.s.r; row <= range.e.r; row++) {
+    if (worksheet["!rows"]?.[row]?.hidden) continue;
+
+    const rowData: string[] = [];
+    for (let col = range.s.c; col <= maxCol; col++) {
+      rowData.push(getCellText(worksheet, row, col));
+    }
+
+    if (rowData.some((cell) => cell.trim().length > 0)) {
+      rows.push(rowData);
+    }
+
+    if (rows.length >= MAX_ROWS_PER_SHEET) break;
+  }
+
+  return rows;
+}
+
 export function parseExcel(file: File): Promise<ExcelParseResult> {
   return new Promise(async (resolve, reject) => {
     if (file.size > MAX_FILE_SIZE) {
@@ -45,8 +79,8 @@ export function parseExcel(file: File): Promise<ExcelParseResult> {
           cellNF: false,
           cellHTML: false,
           cellText: true,
+          cellStyles: true,
           WTF: false,
-          dense: true,
           sheetStubs: false,
         });
 
@@ -61,20 +95,7 @@ export function parseExcel(file: File): Promise<ExcelParseResult> {
           await delay(30);
 
           const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-            header: 1,
-            defval: "",
-            raw: false,
-          }) as string[][];
-
-          const limitedData = jsonData.slice(0, MAX_ROWS_PER_SHEET).map((row) =>
-            row.slice(0, MAX_COLS_PER_ROW).map((cell) => {
-              const str = String(cell ?? "");
-              return str.length > MAX_CELL_LENGTH
-                ? str.substring(0, MAX_CELL_LENGTH) + "..."
-                : str;
-            }),
-          );
+          const limitedData = getVisibleRows(worksheet);
 
           sheets.push({
             name: sheetName,
