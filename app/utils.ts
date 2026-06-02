@@ -280,16 +280,30 @@ export function getMessageImages(message: RequestMessage): string[] {
   return urls;
 }
 
-export function getMessageFiles(message: RequestMessage): { url: string; filename: string }[] {
+export function getMessageFiles(
+  message: RequestMessage,
+): { url: string; filename: string; fileId?: string; content?: string }[] {
   if (typeof message.content === "string") {
     return [];
   }
-  const files: { url: string; filename: string }[] = [];
+  const files: {
+    url: string;
+    filename: string;
+    fileId?: string;
+    content?: string;
+  }[] = [];
   for (const c of message.content) {
     if (c.type === "file_url" && c.file_url?.url && c.file_url?.filename) {
       files.push({
         url: c.file_url.url,
         filename: c.file_url.filename,
+        fileId: c.file_url.file_id,
+      });
+    } else if (c.type === "file_text" && c.file_text?.filename) {
+      files.push({
+        url: "",
+        filename: c.file_text.filename,
+        content: c.file_text.content,
       });
     }
   }
