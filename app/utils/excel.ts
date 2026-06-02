@@ -11,7 +11,7 @@ export interface ExcelParseResult {
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const MAX_ROWS_PER_SHEET = 30;
+const MAX_ROWS_PER_SHEET = 200;
 const MAX_COLS_PER_ROW = 10;
 const MAX_CELL_LENGTH = 500;
 
