@@ -81,8 +81,8 @@ import {
 
 import {
   uploadImage as uploadImageRemote,
-  uploadOpenAIFile,
 } from "@/app/utils/chat";
+import { isExcelFile, parseExcel } from "@/app/utils/excel";
 
 import dynamic from "next/dynamic";
 
@@ -145,9 +145,88 @@ type AttachedFile = {
   url: string;
   name: string;
   fileId?: string;
+  content?: string;
   uploading?: boolean;
   error?: string;
 };
+
+const MAX_PARSED_FILE_CHARS = 20000;
+
+const TEXT_FILE_EXTENSIONS = new Set([
+  "txt",
+  "md",
+  "markdown",
+  "rtf",
+  "py",
+  "js",
+  "jsx",
+  "ts",
+  "tsx",
+  "java",
+  "c",
+  "cpp",
+  "h",
+  "hpp",
+  "html",
+  "htm",
+  "css",
+  "json",
+  "xml",
+  "yaml",
+  "yml",
+  "tsv",
+  "log",
+]);
+
+function truncateParsedContent(content: string) {
+  if (content.length <= MAX_PARSED_FILE_CHARS) return content;
+  return `${content.slice(
+    0,
+    MAX_PARSED_FILE_CHARS,
+  )}\n\n[Content truncated to ${MAX_PARSED_FILE_CHARS} characters]`;
+}
+
+function getFileExtension(filename: string) {
+  return filename.split(".").pop()?.toLowerCase() ?? "";
+}
+
+function readFileAsText(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("File read failed"));
+    reader.readAsText(file);
+  });
+}
+
+async function parseAttachedFile(file: File) {
+  const ext = getFileExtension(file.name);
+
+  if (isExcelFile(file.name)) {
+    const result = await parseExcel(file);
+    return truncateParsedContent(result.rawText.trim());
+  }
+
+  if (TEXT_FILE_EXTENSIONS.has(ext) || file.type.startsWith("text/")) {
+    return truncateParsedContent((await readFileAsText(file)).trim());
+  }
+
+  throw new Error(
+    "This file type is not supported for local parsing. Use Excel, CSV, TXT, Markdown, JSON, YAML, XML, HTML, CSS, code, or log files.",
+  );
+}
+
+function buildFilePrompt(files: AttachedFile[]) {
+  const parsedFiles = files.filter((file) => file.content?.trim());
+  if (parsedFiles.length === 0) return "";
+
+  return parsedFiles
+    .map(
+      (file) =>
+        `\n\n[Parsed file: ${file.name}]\n\`\`\`\n${file.content}\n\`\`\``,
+    )
+    .join("");
+}
 
 const MCPAction = () => {
   const navigate = useNavigate();
@@ -1126,10 +1205,10 @@ function _Chat() {
   const doSubmit = (userInput: string) => {
     if (userInput.trim() === "" && isEmpty(attachImages) && attachFiles.length === 0) return;
     if (attachFiles.some((file) => file.uploading)) {
-      showToast("File upload is still in progress.");
+      showToast("File parsing is still in progress.");
       return;
     }
-    if (attachFiles.some((file) => file.error || !file.fileId)) {
+    if (attachFiles.some((file) => file.error || !file.content)) {
       showToast("Please remove failed files before sending.");
       return;
     }
@@ -1144,14 +1223,15 @@ function _Chat() {
 
     console.log(`Sending message with ${attachImages.length} images and ${attachFiles.length} files`);
 
-    const input = userInput.trim() || "Please read and analyze the attached file.";
+    const input =
+      userInput.trim() ||
+      (attachFiles.length > 0
+        ? "Please read and analyze the attached file."
+        : "");
+    const filePrompt = buildFilePrompt(attachFiles);
+    const messageContent = `${input}${filePrompt}`;
 
-    chatStore.onUserInput(
-      input,
-      attachImages,
-      undefined,
-      attachFiles.map(({ url, name, fileId }) => ({ url, name, fileId })),
-    ).then(() => setIsLoading(false));
+    chatStore.onUserInput(messageContent, attachImages).then(() => setIsLoading(false));
     setAttachImages([]);
     setAttachFiles([]);
     chatStore.setLastInput(input);
@@ -1638,7 +1718,7 @@ function _Chat() {
   async function uploadFile() {
     const fileInput = document.createElement("input");
     fileInput.type = "file";
-    fileInput.accept = ".txt,.md,.markdown,.rtf,.py,.js,.jsx,.ts,.tsx,.java,.c,.cpp,.h,.hpp,.html,.htm,.css,.json,.xml,.yaml,.yml,.tsv,.log,.csv,.doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx";
+    fileInput.accept = ".txt,.md,.markdown,.rtf,.py,.js,.jsx,.ts,.tsx,.java,.c,.cpp,.h,.hpp,.html,.htm,.css,.json,.xml,.yaml,.yml,.tsv,.log,.csv,.xls,.xlsx";
     fileInput.multiple = true;
     fileInput.onchange = async (event: any) => {
       const selectedFiles = Array.from(event.target.files ?? []) as File[];
@@ -1657,22 +1737,22 @@ function _Chat() {
       await Promise.allSettled(
         selectedFiles.map(async (file, index) => {
           try {
-            const uploadedFile = await uploadOpenAIFile(file);
+            const content = await parseAttachedFile(file);
             setAttachFiles((current) =>
               current.map((item) =>
                 item.id === pendingFiles[index].id
                   ? {
                       id: item.id,
-                      url: uploadedFile.id,
-                      name: uploadedFile.filename,
-                      fileId: uploadedFile.id,
+                      url: "",
+                      name: file.name,
+                      content,
                       uploading: false,
                     }
                   : item,
               ),
             );
           } catch (e) {
-            console.error("Error uploading file:", e);
+            console.error("Error parsing file:", e);
             setAttachFiles((current) =>
               current.map((item) =>
                 item.id === pendingFiles[index].id
@@ -2207,10 +2287,10 @@ function _Chat() {
                             })}
                           >
                             {file.uploading
-                              ? "Uploading"
+                              ? "Parsing"
                               : file.error
-                              ? `Upload failed: ${file.error}`
-                              : "Ready"}
+                              ? `Parse failed: ${file.error}`
+                              : "Parsed"}
                           </div>
                         </div>
                         <div className={styles["attached-file-delete"]}>
