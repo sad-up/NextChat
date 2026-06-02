@@ -27,7 +27,31 @@ function getCellText(worksheet: XLSX.WorkSheet, row: number, col: number) {
     : str;
 }
 
-function getVisibleRows(worksheet: XLSX.WorkSheet) {
+function getFilterRange(worksheet: XLSX.WorkSheet) {
+  const filterRef = worksheet["!autofilter"]?.ref;
+  if (!filterRef) return;
+
+  try {
+    return XLSX.utils.decode_range(filterRef);
+  } catch {
+    return;
+  }
+}
+
+function hasHiddenRowsInRange(worksheet: XLSX.WorkSheet, range: XLSX.Range) {
+  for (let row = range.s.r; row <= range.e.r; row++) {
+    if (worksheet["!rows"]?.[row]?.hidden) return true;
+  }
+
+  return false;
+}
+
+function shouldReadFilteredRows(worksheet: XLSX.WorkSheet) {
+  const filterRange = getFilterRange(worksheet);
+  return !!filterRange && hasHiddenRowsInRange(worksheet, filterRange);
+}
+
+function getRows(worksheet: XLSX.WorkSheet, skipHiddenRows: boolean) {
   const rangeRef = worksheet["!ref"];
   if (!rangeRef) return [];
 
@@ -36,7 +60,7 @@ function getVisibleRows(worksheet: XLSX.WorkSheet) {
   const maxCol = Math.min(range.e.c, range.s.c + MAX_COLS_PER_ROW - 1);
 
   for (let row = range.s.r; row <= range.e.r; row++) {
-    if (worksheet["!rows"]?.[row]?.hidden) continue;
+    if (skipHiddenRows && worksheet["!rows"]?.[row]?.hidden) continue;
 
     const rowData: string[] = [];
     for (let col = range.s.c; col <= maxCol; col++) {
@@ -95,14 +119,17 @@ export function parseExcel(file: File): Promise<ExcelParseResult> {
           await delay(30);
 
           const worksheet = workbook.Sheets[sheetName];
-          const limitedData = getVisibleRows(worksheet);
+          const readFilteredRows = shouldReadFilteredRows(worksheet);
+          const limitedData = getRows(worksheet, readFilteredRows);
 
           sheets.push({
             name: sheetName,
             data: limitedData,
           });
 
-          rawText += `[Sheet: ${sheetName}]\n`;
+          rawText += `[Sheet: ${sheetName}${
+            readFilteredRows ? " - filtered visible rows" : ""
+          }]\n`;
           limitedData.forEach((row) => {
             rawText += row.join(" | ") + "\n";
           });
